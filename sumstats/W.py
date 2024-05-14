@@ -7,42 +7,42 @@ from functions import load_vcf, extract_genotype_data, save_to_json
 
 # https://scikit-allel.readthedocs.io/en/stable/stats/diversity.html
 
-def compute_population_diversity(callset: dict, genotypes: np.ndarray) -> float:
+def compute_population_W(callset: dict, genotypes: np.ndarray) -> float:
     """
-    Compute and return population-wide genetic diversity (π).
+    Compute and return population-wide Watterson’s estimator (W).
 
     Args:
         callset (dict): Callset containing VCF data.
         genotypes (np.ndarray): Genotype data.
 
     Returns:
-        float: Population-wide genetic diversity (π).
+        float: Population-wide Watterson’s estimator (W).
 
     Raises:
-        RuntimeError: If there is an error computing population diversity.
+        RuntimeError: If there is an error computing population Watterson’s estimator (W).
     """
     try:
         variants_pos = callset['variants/POS']
         allele_counts = allel.GenotypeArray(genotypes).count_alleles()
-        pi_pop = allel.sequence_diversity(variants_pos, allele_counts)
-        return pi_pop
+        W_pop = allel.watterson_theta(variants_pos, allele_counts)
+        return W_pop
     
     except Exception as e:
         raise RuntimeError(f"Error computing population diversity: {e}")
 
-def compute_sample_diversity(callset: dict, genotypes: np.ndarray) -> dict:
+def compute_sample_W(callset: dict, genotypes: np.ndarray) -> dict:
     """
-    Compute genetic diversity (π) for each sample and return as a dictionary.
+    Compute Watterson’s estimator (W) for each sample and return as a dictionary.
 
     Args:
         callset (dict): Callset containing VCF data.
         genotypes (np.ndarray): Genotype data.
 
     Returns:
-        dict: Dictionary with sample IDs as keys and their genetic diversity (π) as values.
+        dict: Dictionary with sample IDs as keys and their Watterson’s estimator (W) as values.
     """
 
-    diversity_dict = {}
+    W_dict = {}
 
     # Get sample IDs & SNP pos
     sample_ids = callset['samples']
@@ -57,34 +57,33 @@ def compute_sample_diversity(callset: dict, genotypes: np.ndarray) -> dict:
             
             # Compute allele counts for the current sample
             allele_counts = allel.GenotypeArray(sample_genotypes).count_alleles()
-            pi_sample = allel.sequence_diversity(variants_pos, allele_counts)
-            diversity_dict[sample_id] = pi_sample
+            W_sample = allel.watterson_theta(variants_pos, allele_counts)
+            W_dict[sample_id] = W_sample
 
         except Exception as e:
-            print(f"Error computing diversity for sample {sample_id}: {e}")
+            print(f"Error computing Watterson’s estimator for sample {sample_id}: {e}")
 
-    return diversity_dict
+    return W_dict
 
 def main():
-    
     if len(sys.argv) < 2:
         print("Usage: python script.py <vcf_file>")
         sys.exit(1)
 
     vcf_file = sys.argv[1]
-    json_output_file = "diversity.json"
+    json_output_file = "W.json"
 
     callset = load_vcf(vcf_file)
     genotypes = extract_genotype_data(callset)
     
     results = {}
 
-    # Compute population-wide diversity
-    pi_pop = compute_population_diversity(callset, genotypes)
+    # Compute population-wide Watterson’s estimator (W)
+    pi_pop = compute_population_W(callset, genotypes)
     results['population'] = pi_pop
 
-    # Compute sample-specific diversity
-    sample_diversity = compute_sample_diversity(callset, genotypes)
+    # Compute sample-specific Watterson’s estimator (W)
+    sample_diversity = compute_sample_W(callset, genotypes)
     results.update(sample_diversity)
 
     # Save results to JSON
