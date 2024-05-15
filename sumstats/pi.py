@@ -2,66 +2,91 @@ import allel
 import numpy as np
 import json
 import sys 
+import re
 
 from functions import load_vcf, extract_genotype_data, save_to_json
 
 # https://scikit-allel.readthedocs.io/en/stable/stats/diversity.html
 
-def compute_population_diversity(callset: dict, genotypes: np.ndarray) -> float:
+def compute_population_diversity(callset: dict, genotypes: np.ndarray) -> dict:
     """
-    Compute and return population-wide genetic diversity (π).
+    Compute and return population-wide genetic diversity (π) for each contig.
 
     Args:
         callset (dict): Callset containing VCF data.
         genotypes (np.ndarray): Genotype data.
 
     Returns:
-        float: Population-wide genetic diversity (π).
+        dict: A dictionary with contig names as keys and their respective genetic diversity (π) as values.
 
     Raises:
         RuntimeError: If there is an error computing population diversity.
     """
     try:
+        # Extract contig names and variant positions from the callset
+        contig_names = callset['variants/CHROM']
         variants_pos = callset['variants/POS']
-        allele_counts = allel.GenotypeArray(genotypes).count_alleles()
-        pi_pop = allel.sequence_diversity(variants_pos, allele_counts)
-        return pi_pop
+        unique_contigs = np.unique(contig_names)
+
+        pi_results = {}
+        for contig in unique_contigs:
+            # Create a mask to filter positions and genotypes specific to the current contig
+            contig_mask = (contig_names == contig)
+            contig_positions = variants_pos[contig_mask]
+            contig_genotypes = genotypes[contig_mask]
+
+            # Compute allele counts for the current contig
+            allele_counts = allel.GenotypeArray(contig_genotypes).count_alleles()
+            # Compute genetic diversity (π) for the current contig
+            pi_pop = allel.sequence_diversity(contig_positions, allele_counts)
+            pi_results[contig] = pi_pop
+
+        return pi_results
     
     except Exception as e:
         raise RuntimeError(f"Error computing population diversity: {e}")
 
 def compute_sample_diversity(callset: dict, genotypes: np.ndarray) -> dict:
     """
-    Compute genetic diversity (π) for each sample and return as a dictionary.
+    Compute genetic diversity (π) for each sample per chromosome and return as a nested dictionary.
 
     Args:
         callset (dict): Callset containing VCF data.
         genotypes (np.ndarray): Genotype data.
 
     Returns:
-        dict: Dictionary with sample IDs as keys and their genetic diversity (π) as values.
+        dict: Nested dictionary with sample IDs as keys and dictionaries of chromosome-specific π values as values.
     """
-
     diversity_dict = {}
 
-    # Get sample IDs & SNP pos
+    # Get sample IDs, contig names, and variant positions
     sample_ids = callset['samples']
+    contig_names = callset['variants/CHROM']
     variants_pos = callset['variants/POS']
+    unique_contigs = np.unique(contig_names)
 
     for i, sample_id in enumerate(sample_ids):
-        try:
-            # Extract genotypes for the current sample & add a singleton dimension
-            # because it's needed for the tool (the removed dimension is the sample)
-            sample_genotypes = genotypes[:, i, :]
-            sample_genotypes = sample_genotypes[:, :, np.newaxis]
-            
-            # Compute allele counts for the current sample
-            allele_counts = allel.GenotypeArray(sample_genotypes).count_alleles()
-            pi_sample = allel.sequence_diversity(variants_pos, allele_counts)
-            diversity_dict[sample_id] = pi_sample
+        sample_diversity = {}
+        
+        for contig in unique_contigs:
+            try:
+                # Create a mask for the current contig
+                contig_mask = (contig_names == contig)
+                contig_positions = variants_pos[contig_mask]
+                # Extract genotypes for the current sample and contig
+                contig_genotypes = genotypes[contig_mask, i, :]
+                contig_genotypes = contig_genotypes[:, :, np.newaxis]
 
-        except Exception as e:
-            print(f"Error computing diversity for sample {sample_id}: {e}")
+                # Compute allele counts for the current sample and contig
+                allele_counts = allel.GenotypeArray(contig_genotypes).count_alleles()
+                # Compute genetic diversity (π) for the current sample and contig
+                pi_sample = allel.sequence_diversity(contig_positions, allele_counts)
+                sample_diversity[contig] = pi_sample
+
+            except Exception as e:
+                print(f"Error computing diversity for sample {sample_id} on contig {contig}: {e}")
+
+        diversity_dict[sample_id] = sample_diversity
 
     return diversity_dict
 
@@ -72,6 +97,7 @@ def main():
         sys.exit(1)
 
     vcf_file = sys.argv[1]
+
     json_output_file = "diversity.json"
 
     callset = load_vcf(vcf_file)
