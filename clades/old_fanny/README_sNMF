@@ -1,0 +1,31 @@
+1. change vcf to ped format with vcftools
+2. rename the chromosomes in the map file
+3. compute pruning to remove ld linked snp
+plink  --file 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink  --indep-pairwise 500 250 0.5 
+plink  --file 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink  --extract plink.prune.in --recode
+mv plink.ped 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.ped
+mv plink.map 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.map
+mv plink.log 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.log
+mv plink.nosex 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.nosex
+~/src/sNMF_CL_v1.2/bin/ped2geno 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.ped 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.geno
+
+4. Choose K
+
+for K in 10 20 26 30 50 70 100 200 300 500 1000
+for K in 50 200 300 500
+do
+echo K=$K; ~/src/sNMF_CL_v1.2/bin/sNMF -I 10000 -p 3 -x 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.geno -K $K -c 
+		> 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.geno.clust$K.log
+done
+
+
+
+grep "Cross-Entropy (masked data):" 2330strains_SNPs_filteredQD10_PASS_repeatMaskerGffJubin_plink_LD.geno.clust*.log >> 2330strain_clusters_crossentropyK.log
+
+
+4. Definition sNMF: Inference of individual ancestry coefficients, which is important for population genetic and association studies, is commonly performed using computer-intensive likelihood algorithms. With the availability of large population genomic data sets, fast versions of likelihood algorithms have attracted considerable attention. sNMF is a fast and efficient method for estimating individual ancestry coefficients based on sparse non-negative matrix factorization algorithms. In [1], the performances of sNMF were compared to the likelihood algorithm implemented in the computer program ADMIXTURE. Without loss of accuracy, sNMF computed estimates of ancestry coefficients with run-times approximately 10 to 30 times shorter than those of ADMIXTURE.
+
+90 groups  !! Open metadata_2021
+
+Figures structure/ Cross entropy/ Rloop proportion !!
+
