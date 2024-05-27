@@ -138,7 +138,7 @@ def add_genome_wide_pi(data: Dict[str, Dict[str, float]], weights: Dict[str, flo
 def main():
     
     if len(sys.argv) < 4:
-        print("Usage: python script.py <vcf_file> <clade_file_dcit> <chromosome_size_dict>")
+        print("Usage: python script.py <vcf_file> <clade_file_dict> <chromosome_size_dict>")
         sys.exit(1)
 
     vcf_file = sys.argv[1]
@@ -167,7 +167,6 @@ def main():
     # Compute genome-wide pi for each clade (weigthed mean of chromosome pi)
     chr_size = load_json_to_dict(chr_dict)
     results = add_genome_wide_pi(results, chr_size)
-    print(results)
 
     # Save results to JSON
     save_to_json(results, json_output_file)
